@@ -47,11 +47,13 @@ const getAllPost = async ({
   limit = 10,
   search,
   isFeatured,
+  tags,
 }: {
   page?: number;
   limit?: number;
   search?: string;
   isFeatured?: boolean;
+  tags?: string[];
 }) => {
   const skip = (page - 1) * limit;
 
@@ -59,22 +61,19 @@ const getAllPost = async ({
     AND: [
       search && {
         OR: [
-          {
-            title: {
-              contains: search,
-              mode: "insensitive",
-            },
-          },
-          {
-            content: {
-              contains: search,
-              mode: "insensitive",
-            },
-          },
+          { title: { contains: search, mode: "insensitive" } },
+          { content: { contains: search, mode: "insensitive" } },
         ],
       },
-      // typeof isFeatured === "boolean" && { isFeatured },
-    ],
+      typeof isFeatured === "boolean" && { isFeatured },
+      tags?.length
+        ? {
+            tags: {
+              hasSome: tags,
+            },
+          }
+        : undefined,
+    ].filter(Boolean),
   };
 
   const result = await prisma.post.findMany({
@@ -82,17 +81,32 @@ const getAllPost = async ({
     take: limit,
     where,
   });
+  const total = await prisma.post.count({ where });
 
-  return result;
+  return {
+    data: result,
+    paginations: { page, limit, total, totalPages: Math.ceil(total / limit) },
+  };
 };
 
 const getSinglePostById = async (id: number) => {
-  const result = await prisma.post.findUnique({
-    where: {
-      id,
-    },
+  // TransAction and Views Counts
+  return await prisma.$transaction(async (tx) => {
+    await tx.post.update({
+      where: { id },
+      data: {
+        views: {
+          increment: 1,
+        },
+      },
+    });
+    return await tx.post.findUnique({
+      where: {
+        id,
+      },
+      include: { author: true },
+    });
   });
-  return result;
 };
 
 const updatePost = async (id: number, payload: Prisma.PostUpdateInput) => {
@@ -112,10 +126,33 @@ const dltPost = async (id: number) => {
     },
   });
 };
+
+const getBlogStat = async () => {
+  return await prisma.$transaction(async (tx) => {
+    const result = await tx.post.aggregate({
+      _count: true,
+      _avg: { views: true },
+      _max: { views: true },
+      _min: { views: true },
+      _sum: { views: true },
+    });
+
+    return {
+      Stats: {
+        totalPosts: result,
+        AvarageViews: result._avg,
+        MaximumViews: result._max,
+        MinimumViewxs: result._min,
+        TotalViews: result._sum,
+      },
+    };
+  });
+};
 export const PostService = {
   createPost,
   updatePost,
   getAllPost,
   getSinglePostById,
   dltPost,
+  getBlogStat,
 };

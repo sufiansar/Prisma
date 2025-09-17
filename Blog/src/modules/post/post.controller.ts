@@ -14,27 +14,68 @@ const createPost = async (req: Request, res: Response) => {
   }
 };
 
+// const getAllPost = async (req: Request, res: Response) => {
+//   try {
+//     const page = Number(req.query.page) || 1;
+//     const limit = Number(req.query.limit) || 10;
+//     const search = String(req.query.search) || "";
+//     const isFeatured = req.query.isFeatured
+//       ? req.query.isFeatured === "true"
+//       : undefined;
+
+//     const tags = req.query.tags ? String(req.query.tags).split(",") : [];
+//     const result = await PostService.getAllPost({
+//       page,
+//       limit,
+//       search,
+//       isFeatured,
+//       tags,
+//     });
+
+//     res.status(200).json({
+//       message: "Post Retrived Successfully!!!",
+//       data: result,
+//     });
+//   } catch (error) {
+//     console.log(error);
+//   }
+// };
+
 const getAllPost = async (req: Request, res: Response) => {
   try {
     const page = Number(req.query.page) || 1;
     const limit = Number(req.query.limit) || 10;
-    const search = String(req.query.search) || "";
-    const isFeatured = req.query.isFeatured
-      ? req.query.isFeatured === "true"
-      : undefined;
+
+    const search = req.query.search ? String(req.query.search) : undefined;
+    const isFeatured =
+      req.query.isFeatured !== undefined
+        ? req.query.isFeatured === "true"
+        : undefined;
+
+    const tags = req.query.tags
+      ? String(req.query.tags)
+          .split(",")
+          .map((tag) => tag.trim())
+      : [];
+
     const result = await PostService.getAllPost({
       page,
       limit,
       search,
       isFeatured,
+      tags,
     });
 
     res.status(200).json({
-      message: "Post Retrived Successfully!!!",
+      message: "Posts retrieved successfully!",
       data: result,
     });
   } catch (error) {
-    console.log(error);
+    console.error(error);
+    res.status(500).json({
+      message: "Something went wrong while retrieving posts",
+      error,
+    });
   }
 };
 
@@ -68,10 +109,23 @@ const dltPost = async (req: Request, res: Response) => {
   } catch (error) {}
 };
 
+const getBlogStat = async (req: Request, res: Response) => {
+  const data = await PostService.getBlogStat();
+  try {
+    res.status(200).json({
+      message: "Stats Retrived Successfully!!!",
+      data: data,
+    });
+  } catch (error) {
+    console.log(error);
+  }
+};
+
 export const PostController = {
   createPost,
   updatePost,
   getAllPost,
   getSinglePostById,
   dltPost,
+  getBlogStat,
 };
